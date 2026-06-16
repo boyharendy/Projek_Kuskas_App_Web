@@ -168,7 +168,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   width: 64,
                   height: 64,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF72A7D9), // Light blue from image
                     borderRadius: BorderRadius.circular(AppRadius.lg),
                     boxShadow: [
                       BoxShadow(
@@ -178,15 +177,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ],
                   ),
-                  child: const Center(
-                    child: Text(
-                      'K',
-                      style: TextStyle(
-                        fontSize: 38,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF143E6C), // Dark blue from image
-                        height: 1.15,
-                      ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(AppRadius.lg),
+                    child: Image.asset(
+                      'assets/icon/app_icon.jpg',
+                      width: 64,
+                      height: 64,
+                      fit: BoxFit.cover,
                     ),
                   ),
                 ),

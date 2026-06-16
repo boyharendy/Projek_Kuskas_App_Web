@@ -71,7 +71,6 @@ class _SplashScreenState extends State<SplashScreen>
                       width: 100,
                       height: 100,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF72A7D9), // Light blue from image
                         borderRadius: BorderRadius.circular(AppRadius.xxl),
                         boxShadow: [
                           BoxShadow(
@@ -81,15 +80,13 @@ class _SplashScreenState extends State<SplashScreen>
                           ),
                         ],
                       ),
-                      child: const Center(
-                        child: Text(
-                          'K',
-                          style: TextStyle(
-                            fontSize: 60,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF143E6C), // Dark blue from image
-                            height: 1.15,
-                          ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(AppRadius.xxl),
+                        child: Image.asset(
+                          'assets/icon/app_icon.jpg',
+                          width: 100,
+                          height: 100,
+                          fit: BoxFit.cover,
                         ),
                       ),
                     ),
