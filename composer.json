@@ -1,0 +1,7 @@
+{
+    "name": "boyharendy/projek-kuskas-app-web",
+    "description": "Monorepo root for Kuskas",
+    "require": {
+        "php": "^8.2"
+    }
+}
