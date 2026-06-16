@@ -1,0 +1,28 @@
+# Laravel
+web/.env
+web/vendor/
+web/node_modules/
+web/public/storage
+web/storage/*.key
+web/bootstrap/cache/*
+
+# Flutter
+flutter/.env
+flutter/.dart_tool/
+flutter/build/
+flutter/.flutter-plugins
+flutter/.flutter-plugins-dependencies
+flutter/*.imt
+flutter/android/.gradle/
+flutter/android/local.properties
+flutter/ios/.symlinks/
+flutter/ios/Flutter/Flutter.framework
+flutter/ios/Flutter/Flutter.podspec
+flutter/ios/Flutter/Generated.xcconfig
+
+# Temp / IDE
+laravel_temp/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
