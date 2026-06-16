@@ -18,6 +18,16 @@
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
 </p>
 
+<p align="center">
+  <a href="https://projek-kuskas-app-web.onrender.com">
+    <img src="https://img.shields.io/badge/🌐_Buka_Web_App-Render-4351e8?style=for-the-badge&logo=render&logoColor=white" alt="Web App" />
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://github.com/boyharendy/Projek_Kuskas_App_Web/releases/latest">
+    <img src="https://img.shields.io/badge/📱_Download_APK-Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Download APK" />
+  </a>
+</p>
+
 ---
 
 ## 📖 Tentang Proyek
