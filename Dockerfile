@@ -2,7 +2,7 @@
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app
 COPY web/package*.json ./
-RUN npm install
+RUN npm install --legacy-peer-deps
 COPY web/resources ./resources
 COPY web/tsconfig.json web/vite.config.js web/tailwind.config.js web/postcss.config.js ./
 RUN npm run build
