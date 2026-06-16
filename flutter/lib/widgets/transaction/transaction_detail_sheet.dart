@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../config/theme.dart';
 import '../../models/transaction.dart';
 import '../../utils/formatters.dart';
+import '../../utils/transaction_notifier.dart';
+import '../../screens/add_transaction_screen.dart';
 
 class TransactionDetailSheet {
   static void show(BuildContext context, Transaction t) {
@@ -104,7 +107,27 @@ class TransactionDetailSheet {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        Navigator.pop(context); // Close detail sheet
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AddTransactionScreen(
+                              initialType: t.type,
+                              initialData: {
+                                'id': t.id,
+                                'type': t.type,
+                                'amount': t.amount,
+                                'categoryName': t.categoryName,
+                                'description': t.description,
+                                'transactionDate': t.transactionDate.toIso8601String(),
+                                'paymentMethod': t.paymentMethod,
+                                'inputMethod': t.inputMethod,
+                              },
+                            ),
+                          ),
+                        );
+                      },
                       icon: const Icon(Icons.edit_outlined, size: 18),
                       label: const Text('Edit'),
                     ),
@@ -112,7 +135,51 @@ class TransactionDetailSheet {
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (dialogCtx) => AlertDialog(
+                            backgroundColor: AppColors.surface,
+                            title: const Text('Hapus Transaksi', style: TextStyle(color: Colors.white)),
+                            content: const Text('Apakah Anda yakin ingin menghapus transaksi ini?', style: TextStyle(color: AppColors.textSecondary)),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(dialogCtx),
+                                child: const Text('Batal', style: TextStyle(color: AppColors.textHint)),
+                              ),
+                              TextButton(
+                                onPressed: () async {
+                                  Navigator.pop(dialogCtx); // Close dialog
+                                  Navigator.pop(context); // Close detail sheet
+                                  try {
+                                    await Supabase.instance.client
+                                        .from('transactions')
+                                        .delete()
+                                        .eq('id', t.id);
+                                    TransactionNotifier.notifyChanged();
+                                    
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Transaksi berhasil dihapus!'),
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Gagal menghapus: $e'),
+                                        behavior: SnackBarBehavior.floating,
+                                        backgroundColor: AppColors.error,
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: const Text('Hapus', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                       icon: const Icon(Icons.delete_outline_rounded, size: 18),
                       label: const Text('Hapus'),
                       style: ElevatedButton.styleFrom(
