@@ -1071,8 +1071,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                 final profileName = user.userMetadata?['full_name'] ?? 'Kuskas User';
                 final profileEmail = user.email ?? 'anon-${user.id.substring(0, 8)}@kuskas.app';
 
-                // Send POST request directly to local Laravel backend
-                final uri = Uri.parse('http://localhost:8000/qr-login/authenticate');
+                // Send POST request directly to live Render backend
+                final uri = Uri.parse('https://projek-kuskas-app-web.onrender.com/qr-login/authenticate');
                 final response = await http.post(
                   uri,
                   headers: {
