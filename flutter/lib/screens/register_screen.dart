@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/theme.dart';
 import '../widgets/animated_background.dart';
 
@@ -28,13 +29,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  void _handleRegister() {
+  Future<void> _handleRegister() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
-      Future.delayed(const Duration(milliseconds: 800), () {
+      try {
+        final email = _emailController.text.trim();
+        final password = _passwordController.text;
+        final name = _nameController.text.trim();
+
+        // Sign up with Supabase Auth
+        final response = await Supabase.instance.client.auth.signUp(
+          email: email,
+          password: password,
+          data: {
+            'full_name': name,
+          },
+        );
+
+        // Registration successful. Profile will be created/updated upon first login.
+
         if (mounted) {
-          setState(() => _isLoading = false);
-          Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('Akun berhasil dibuat! Silakan login.'),
@@ -45,10 +59,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
           );
+          Navigator.pop(context);
         }
-      });
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Gagal membuat akun: $e'),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

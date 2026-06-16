@@ -7,6 +7,7 @@ import '../widgets/dashboard/summary_cards.dart';
 import '../widgets/dashboard/recent_transactions.dart';
 import '../utils/transaction_notifier.dart';
 import '../widgets/dashboard/notification_center_sheet.dart';
+import '../utils/user_cache.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -74,18 +75,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        title: StreamBuilder<AuthState>(
-          stream: Supabase.instance.client.auth.onAuthStateChange,
-          builder: (context, snapshot) {
-            final user = Supabase.instance.client.auth.currentUser;
-            final displayName = user?.userMetadata?['full_name'] ?? 
-                                user?.userMetadata?['display_name'] ?? 
-                                'Kuskas User';
-            final avatarMeta = user?.userMetadata?['avatar_index'];
-            final avatarIndex = avatarMeta is int 
-                ? avatarMeta 
-                : int.tryParse(avatarMeta?.toString() ?? '0') ?? 0;
-            final avatarBase64 = user?.userMetadata?['avatar_base64'] as String?;
+        title: ValueListenableBuilder<int>(
+          valueListenable: UserCache.updateNotifier,
+          builder: (context, _, __) {
+            final displayName = UserCache.displayName ?? 'Kuskas User';
+            final avatarIndex = UserCache.avatarIndex;
+            final avatarBase64 = UserCache.avatarBase64;
 
             final List<Color> gradientColors;
             if (avatarIndex == 0) {
@@ -141,16 +136,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           : null,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.md),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         'Selamat datang 👋',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.white.withOpacity(0.6),
-                          fontWeight: FontWeight.w500,
                         ),
                       ),
                       Text(
@@ -166,7 +161,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             );
-          }
+          },
         ),
         actions: [
           Stack(

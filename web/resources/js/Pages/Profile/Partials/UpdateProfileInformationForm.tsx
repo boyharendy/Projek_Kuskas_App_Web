@@ -20,6 +20,39 @@ export default function UpdateProfileInformation({
             email: user.email,
         });
 
+    const renderAvatarPreview = () => {
+        const displayName = data.name || 'K';
+        const firstLetter = displayName.trim().charAt(0).toUpperCase() || 'K';
+        const avatarUrl = user.avatar_url;
+
+        if (avatarUrl && avatarUrl.length > 5) {
+            const src = avatarUrl.startsWith('data:') ? avatarUrl : `data:image/png;base64,${avatarUrl}`;
+            return (
+                <img 
+                    src={src} 
+                    alt={displayName} 
+                    className="w-14 h-14 rounded-full object-cover border border-white/10"
+                />
+            );
+        }
+
+        const avatarIndex = parseInt(avatarUrl || '0', 10);
+        let gradientClass = 'from-indigo-600 to-violet-500';
+        if (avatarIndex === 1) {
+            gradientClass = 'from-purple-600 to-fuchsia-500';
+        } else if (avatarIndex === 2) {
+            gradientClass = 'from-blue-600 to-cyan-500';
+        } else if (avatarIndex === 3) {
+            gradientClass = 'from-emerald-500 to-teal-400';
+        }
+
+        return (
+            <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${gradientClass} flex items-center justify-center text-lg font-bold text-white shadow-md border border-white/10`}>
+                {firstLetter}
+            </div>
+        );
+    };
+
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
 
@@ -39,6 +72,14 @@ export default function UpdateProfileInformation({
             </header>
 
             <form onSubmit={submit} className="mt-6 space-y-6">
+                <div className="flex items-center space-x-4 pb-4 border-b border-white/5">
+                    {renderAvatarPreview()}
+                    <div>
+                        <h4 className="text-sm font-semibold text-slate-200">Foto Profil Aktif</h4>
+                        <p className="text-xs text-slate-500 mt-0.5">Sinkron dengan aplikasi ponsel Kuskas.</p>
+                    </div>
+                </div>
+
                 <div>
                     <label htmlFor="name" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                         Nama Pengguna

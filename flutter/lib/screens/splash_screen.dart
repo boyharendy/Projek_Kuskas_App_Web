@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/theme.dart';
 import '../widgets/animated_background.dart';
+import '../utils/user_cache.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -30,9 +32,17 @@ class _SplashScreenState extends State<SplashScreen>
     );
     _controller.forward();
 
-    Future.delayed(const Duration(seconds: 2), () {
+    Future.delayed(const Duration(seconds: 2), () async {
       if (mounted) {
-        Navigator.pushReplacementNamed(context, '/login');
+        final session = Supabase.instance.client.auth.currentSession;
+        if (session != null) {
+          await UserCache.loadProfile();
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, '/main');
+          }
+        } else {
+          Navigator.pushReplacementNamed(context, '/login');
+        }
       }
     });
   }
@@ -61,24 +71,26 @@ class _SplashScreenState extends State<SplashScreen>
                       width: 100,
                       height: 100,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: AppColors.primaryGradient,
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        color: const Color(0xFF72A7D9), // Light blue from image
                         borderRadius: BorderRadius.circular(AppRadius.xxl),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primary.withOpacity(0.4),
+                            color: const Color(0xFF72A7D9).withOpacity(0.4),
                             blurRadius: 24,
                             spreadRadius: 2,
                           ),
                         ],
                       ),
-                      child: const Icon(
-                        Icons.account_balance_wallet_rounded,
-                        size: 52,
-                        color: Colors.white,
+                      child: const Center(
+                        child: Text(
+                          'K',
+                          style: TextStyle(
+                            fontSize: 60,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF143E6C), // Dark blue from image
+                            height: 1.15,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.xl),

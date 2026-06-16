@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/theme.dart';
 import '../widgets/animated_background.dart';
+import '../utils/user_cache.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -25,30 +26,124 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
+      try {
+        final email = _emailController.text.trim();
+        final password = _passwordController.text;
+
+        // Perform login with email and password
+        final response = await Supabase.instance.client.auth.signInWithPassword(
+          email: email,
+          password: password,
+        );
+
+        final user = response.user;
+        if (user != null) {
+          final displayName = user.userMetadata?['full_name'] ?? 
+                              user.userMetadata?['display_name'] ?? 
+                              'Kuskas User';
+          // Upsert profile in public.users table if it doesn't exist or needs update
+          await Supabase.instance.client.from('users').upsert({
+            'id': user.id,
+            'email': user.email ?? email,
+            'full_name': displayName,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          });
+
+          await UserCache.loadProfile();
+        }
+
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/main');
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Gagal masuk: $e'),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
     setState(() => _isLoading = true);
     try {
-      // Perform anonymous login
-      final response = await Supabase.instance.client.auth.signInAnonymously();
-      final user = response.user;
-      if (user != null) {
-        final displayName = user.userMetadata?['full_name'] ?? 
-                            user.userMetadata?['display_name'] ?? 
-                            'Kuskas User';
-        // Upsert default profile in public.users if not exists
-        await Supabase.instance.client.from('users').upsert({
-          'id': user.id,
-          'email': user.email ?? 'anon-${user.id.substring(0, 8)}@kuskas.app',
-          'full_name': displayName,
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
-        });
-      }
+      await Supabase.instance.client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: 'kuskas://login-callback',
+      );
+    } catch (e) {
       if (mounted) {
-        Navigator.pushReplacementNamed(context, '/main');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal masuk dengan Google: $e'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+
+
+  Future<void> _handleForgotPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Silakan isi alamat email Anda terlebih dahulu di kolom email.'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+          ),
+        ),
+      );
+      return;
+    }
+    setState(() => _isLoading = true);
+    try {
+      await Supabase.instance.client.auth.resetPasswordForEmail(email);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Tautan pengaturan ulang sandi telah dikirim ke email Anda!'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal masuk: $e')),
+          SnackBar(
+            content: Text('Gagal mengirim email reset: $e'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+          ),
         );
       }
     } finally {
@@ -69,29 +164,30 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: AppSpacing.xl),
-                // Logo
                 Container(
                   width: 64,
                   height: 64,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: AppColors.primaryGradient,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: const Color(0xFF72A7D9), // Light blue from image
                     borderRadius: BorderRadius.circular(AppRadius.lg),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withOpacity(0.3),
+                        color: const Color(0xFF72A7D9).withOpacity(0.3),
                         blurRadius: 16,
                         spreadRadius: 1,
                       ),
                     ],
                   ),
-                  child: const Icon(
-                    Icons.account_balance_wallet_rounded,
-                    size: 32,
-                    color: Colors.white,
+                  child: const Center(
+                    child: Text(
+                      'K',
+                      style: TextStyle(
+                        fontSize: 38,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF143E6C), // Dark blue from image
+                        height: 1.15,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
@@ -196,7 +292,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () {},
+                          onPressed: _isLoading ? null : _handleForgotPassword,
                           child: const Text(
                             'Lupa Password?',
                             style: TextStyle(
@@ -286,7 +382,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   width: double.infinity,
                   height: 52,
                   child: OutlinedButton.icon(
-                    onPressed: () {},
+                    onPressed: _isLoading ? null : _handleGoogleSignIn,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
                       side: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
@@ -299,6 +395,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     label: const Text('Masuk dengan Google', style: TextStyle(color: Colors.white)),
                   ),
                 ),
+
                 const SizedBox(height: AppSpacing.xxl),
 
                 // Register link

@@ -39,6 +39,7 @@ class HandleInertiaRequests extends Middleware
                     'name' => $user->name,
                     'email' => $user->email,
                     'kuskas_user_id' => $user->kuskas_user_id,
+                    'avatar_url' => $user->avatar_url,
                 ] : null,
             ],
         ];

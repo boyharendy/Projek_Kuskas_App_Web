@@ -14,6 +14,8 @@ import '../config/theme.dart';
 import '../services/notification_listener_service.dart';
 import '../utils/web_notification.dart';
 import '../widgets/animated_background.dart';
+import '../utils/user_cache.dart';
+import 'qr_scanner_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -59,26 +61,82 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     }
   }
 
-  void _loadUserProfile() {
+  Future<void> _loadUserProfile() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user != null) {
-      setState(() {
-        _displayName = user.userMetadata?['full_name'] ?? user.userMetadata?['display_name'] ?? 'Kuskas User';
-        _email = user.email ?? 'user@kuskas.app';
-        _isAnonymous = user.email == null || user.email!.isEmpty;
-        
-        final avatarMeta = user.userMetadata?['avatar_index'];
-        _selectedAvatarIndex = avatarMeta is int 
-            ? avatarMeta 
-            : int.tryParse(avatarMeta?.toString() ?? '0') ?? 0;
-            
-        _avatarBase64 = user.userMetadata?['avatar_base64'];
+      if (mounted) {
+        setState(() {
+          _displayName = user.userMetadata?['full_name'] ?? user.userMetadata?['display_name'] ?? 'Kuskas User';
+          _email = user.email ?? 'user@kuskas.app';
+          _isAnonymous = user.email == null || user.email!.isEmpty;
+          
+          final avatarMeta = user.userMetadata?['avatar_index'];
+          _selectedAvatarIndex = avatarMeta is int 
+              ? avatarMeta 
+              : int.tryParse(avatarMeta?.toString() ?? '0') ?? 0;
+              
+          _avatarBase64 = user.userMetadata?['avatar_base64'];
 
-        // Load reminder settings
-        _isDailyAlertsEnabled = user.userMetadata?['reminder_enabled'] as bool? ?? false;
-        _reminderHour = user.userMetadata?['reminder_hour'] as int? ?? 20;
-        _reminderMinute = user.userMetadata?['reminder_minute'] as int? ?? 0;
-      });
+          // Load reminder settings
+          _isDailyAlertsEnabled = user.userMetadata?['reminder_enabled'] as bool? ?? false;
+          _reminderHour = user.userMetadata?['reminder_hour'] as int? ?? 20;
+          _reminderMinute = user.userMetadata?['reminder_minute'] as int? ?? 0;
+        });
+      }
+
+      // Sync and load from DB table
+      try {
+        final userData = await Supabase.instance.client
+            .from('users')
+            .select()
+            .eq('id', user.id)
+            .maybeSingle();
+
+        if (userData != null && mounted) {
+          final dbAvatarUrl = userData['avatar_url'] as String?;
+          final dbFullName = userData['full_name'] as String?;
+
+          setState(() {
+            if (dbFullName != null && dbFullName.isNotEmpty) {
+              _displayName = dbFullName;
+            }
+            if (dbAvatarUrl != null) {
+              final parsedIndex = int.tryParse(dbAvatarUrl);
+              if (parsedIndex != null) {
+                _selectedAvatarIndex = parsedIndex;
+                _avatarBase64 = null;
+              } else {
+                _selectedAvatarIndex = -1;
+                _avatarBase64 = dbAvatarUrl;
+              }
+            }
+          });
+
+          // Sync with the cache
+          UserCache.displayName = _displayName;
+          UserCache.avatarIndex = _selectedAvatarIndex;
+          UserCache.avatarBase64 = _avatarBase64;
+          UserCache.notifyUpdate();
+        }
+      } catch (e) {
+        debugPrint('Error loading user profile from db: $e');
+      }
+
+      // Clean metadata
+      if (user.userMetadata?['avatar_base64'] != null) {
+        try {
+          await Supabase.instance.client.auth.updateUser(
+            UserAttributes(
+              data: {
+                'avatar_base64': null,
+              },
+            ),
+          );
+          debugPrint('Successfully cleaned up avatar_base64 from auth user_metadata');
+        } catch (e) {
+          debugPrint('Error clearing metadata: $e');
+        }
+      }
     }
   }
 
@@ -417,36 +475,43 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                         isSaving = true;
                                       });
                                       
-                                      try {
-                                        final user = Supabase.instance.client.auth.currentUser;
-                                        if (user != null) {
-                                          await Supabase.instance.client.auth.updateUser(
-                                            UserAttributes(
-                                              data: {
-                                                'full_name': nameController.text.trim().isEmpty ? 'Kuskas User' : nameController.text.trim(),
-                                                'display_name': nameController.text.trim().isEmpty ? 'Kuskas User' : nameController.text.trim(),
-                                                'avatar_index': selectedAvatar,
-                                                'avatar_base64': selectedAvatar == -1 ? dialogAvatarBase64 : null,
-                                              },
-                                            ),
-                                          );
+                                       try {
+                                         final user = Supabase.instance.client.auth.currentUser;
+                                         if (user != null) {
+                                           await Supabase.instance.client.auth.updateUser(
+                                             UserAttributes(
+                                               data: {
+                                                 'full_name': nameController.text.trim().isEmpty ? 'Kuskas User' : nameController.text.trim(),
+                                                 'display_name': nameController.text.trim().isEmpty ? 'Kuskas User' : nameController.text.trim(),
+                                                 'avatar_index': selectedAvatar,
+                                                 'avatar_base64': null, // NEVER store base64 in auth metadata
+                                               },
+                                             ),
+                                           );
 
-                                          // Also update public.users table for web dashboard integration
-                                          await Supabase.instance.client.from('users').upsert({
-                                            'id': user.id,
-                                            'email': user.email ?? 'anon-${user.id.substring(0, 8)}@kuskas.app',
-                                            'full_name': nameController.text.trim().isEmpty ? 'Kuskas User' : nameController.text.trim(),
-                                            'avatar_url': selectedAvatar.toString(),
-                                            'updated_at': DateTime.now().toUtc().toIso8601String(),
-                                          });
-                                        }
-                                        
-                                        if (mounted) {
-                                          setState(() {
-                                            _displayName = nameController.text.trim();
-                                            _selectedAvatarIndex = selectedAvatar;
-                                            _avatarBase64 = selectedAvatar == -1 ? dialogAvatarBase64 : null;
-                                          });
+                                           // Also update public.users table for web dashboard integration
+                                           await Supabase.instance.client.from('users').upsert({
+                                             'id': user.id,
+                                             'email': user.email ?? 'anon-${user.id.substring(0, 8)}@kuskas.app',
+                                             'full_name': nameController.text.trim().isEmpty ? 'Kuskas User' : nameController.text.trim(),
+                                             'avatar_url': selectedAvatar == -1 ? dialogAvatarBase64 : selectedAvatar.toString(),
+                                             'updated_at': DateTime.now().toUtc().toIso8601String(),
+                                           });
+
+                                           // Sync cache
+                                           UserCache.displayName = nameController.text.trim().isEmpty ? 'Kuskas User' : nameController.text.trim();
+                                           UserCache.avatarIndex = selectedAvatar;
+                                           UserCache.avatarBase64 = selectedAvatar == -1 ? dialogAvatarBase64 : null;
+                                           UserCache.notifyUpdate();
+                                         }
+                                         
+                                         if (mounted) {
+                                           setState(() {
+                                             _displayName = nameController.text.trim();
+                                             _selectedAvatarIndex = selectedAvatar;
+                                             _avatarBase64 = selectedAvatar == -1 ? dialogAvatarBase64 : null;
+                                           });
+                                         }
                                           
                                           if (context.mounted) {
                                             ScaffoldMessenger.of(context).showSnackBar(
@@ -461,8 +526,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                             );
                                             Navigator.pop(context);
                                           }
-                                        }
-                                      } catch (e) {
+                                        } catch (e) {
                                         if (context.mounted) {
                                           ScaffoldMessenger.of(context).showSnackBar(
                                             SnackBar(
@@ -1011,7 +1075,6 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   }
 
   void _showQRScanDialog() {
-    final codeController = TextEditingController();
     bool isConnecting = false;
     String? loadingMessage;
 
@@ -1124,17 +1187,29 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
             }
 
             Future<void> pickAndDecode(ImageSource source) async {
+              if (source == ImageSource.camera) {
+                // Open real-time live scanner screen
+                final qrText = await Navigator.push<String>(
+                  context,
+                  MaterialPageRoute(builder: (context) => const QRScannerScreen()),
+                );
+
+                if (qrText != null && qrText.isNotEmpty) {
+                  await processQRData(qrText);
+                }
+                return;
+              }
+
               setDialogState(() {
                 isConnecting = true;
-                loadingMessage = source == ImageSource.camera ? "Membuka Kamera..." : "Membuka Galeri...";
+                loadingMessage = "Membuka Galeri...";
               });
 
               try {
                 final picker = ImagePicker();
                 final image = await picker.pickImage(
                   source: source,
-                  maxWidth: 1024,
-                  maxHeight: 1024,
+                  imageQuality: 100,
                 );
 
                 if (image != null) {
@@ -1150,10 +1225,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                   } else {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(source == ImageSource.camera
-                              ? 'Tidak terdeteksi QR Code dari kamera. Mohon dekatkan kamera ke QR Code di web.'
-                              : 'Tidak terdeteksi QR Code pada gambar yang dipilih.'),
+                        const SnackBar(
+                          content: Text('Tidak terdeteksi QR Code pada gambar yang dipilih.'),
                           backgroundColor: AppColors.error,
                         ),
                       );
@@ -1321,102 +1394,22 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                               ),
                               
                               const SizedBox(height: 24),
-                              const Row(
-                                children: [
-                                  Expanded(child: Divider(color: Colors.white10)),
-                                  Padding(
-                                    padding: EdgeInsets.symmetric(horizontal: 10),
-                                    child: Text(
-                                      'ATAU INPUT MANUAL',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.textHint,
-                                        letterSpacing: 1.0,
-                                      ),
+                              
+                              // Batal Button
+                              SizedBox(
+                                width: double.infinity,
+                                height: 50,
+                                child: OutlinedButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  style: OutlinedButton.styleFrom(
+                                    side: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
                                     ),
                                   ),
-                                  Expanded(child: Divider(color: Colors.white10)),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              
-                              TextFormField(
-                                controller: codeController,
-                                style: const TextStyle(color: Colors.white, fontSize: 13),
-                                decoration: InputDecoration(
-                                  hintText: 'Masukkan Session ID / QR data payload',
-                                  hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 12),
-                                  fillColor: const Color(0x1F0F1532),
-                                  filled: true,
-                                  prefixIcon: const Icon(Icons.vpn_key_outlined, color: AppColors.textHint, size: 18),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  child: const Text('Batal'),
                                 ),
-                              ),
-                              const SizedBox(height: 24),
-                              
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: OutlinedButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      style: OutlinedButton.styleFrom(
-                                        side: BorderSide(color: Colors.white.withOpacity(0.1)),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(vertical: 14),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(14),
-                                        ),
-                                      ),
-                                      child: const Text('Batal'),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        gradient: const LinearGradient(
-                                          colors: AppColors.primaryGradient,
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                      child: ElevatedButton(
-                                        onPressed: () {
-                                          final text = codeController.text.trim();
-                                          if (text.isEmpty) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(
-                                                content: Text('Kode input manual tidak boleh kosong.'),
-                                                backgroundColor: AppColors.error,
-                                              ),
-                                            );
-                                            return;
-                                          }
-                                          processQRData(text);
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.transparent,
-                                          shadowColor: Colors.transparent,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(vertical: 14),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(14),
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'Hubungkan',
-                                          style: TextStyle(fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
                               ),
                             ],
                           ),
@@ -1755,8 +1748,11 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                   iconColor: AppColors.error,
                   title: 'Keluar Akun',
                   color: AppColors.error,
-                  onTap: () {
-                    Navigator.pushReplacementNamed(context, '/login');
+                  onTap: () async {
+                    await Supabase.instance.client.auth.signOut();
+                    if (context.mounted) {
+                      Navigator.pushReplacementNamed(context, '/login');
+                    }
                   },
                 ),
                 

@@ -1,8 +1,9 @@
 export interface User {
-    id: number;
+    id: string | number;
     name: string;
     email: string;
     email_verified_at?: string;
+    avatar_url?: string;
 }
 
 export type PageProps<
