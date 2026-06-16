@@ -32,36 +32,33 @@ class _LoginScreenState extends State<LoginScreen> {
         final email = _emailController.text.trim();
         final password = _passwordController.text;
 
-        // Perform login with email and password
+        // Perform login with email and password (with timeout)
         final response = await Supabase.instance.client.auth.signInWithPassword(
           email: email,
           password: password,
-        );
+        ).timeout(const Duration(seconds: 10));
 
         final user = response.user;
         if (user != null) {
-          final displayName = user.userMetadata?['full_name'] ?? 
-                              user.userMetadata?['display_name'] ?? 
-                              'Kuskas User';
-          // Upsert profile in public.users table if it doesn't exist or needs update
-          await Supabase.instance.client.from('users').upsert({
-            'id': user.id,
-            'email': user.email ?? email,
-            'full_name': displayName,
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
-          });
+          // Navigate immediately — don't wait for profile sync
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, '/main');
+          }
 
-          await UserCache.loadProfile();
-        }
-
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/main');
+          // Sync profile in background (non-blocking)
+          _syncProfileInBackground(user, email);
         }
       } catch (e) {
         if (mounted) {
+          String errorMsg = 'Gagal masuk';
+          if (e.toString().contains('Invalid login credentials')) {
+            errorMsg = 'Email atau password salah';
+          } else if (e.toString().contains('TimeoutException')) {
+            errorMsg = 'Koneksi timeout, coba lagi';
+          }
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Gagal masuk: $e'),
+              content: Text(errorMsg),
               backgroundColor: AppColors.error,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
@@ -70,8 +67,34 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           );
         }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
       }
     }
+  }
+
+  /// Syncs user profile to database and loads cache in background.
+  /// This runs after navigation so the user doesn't wait.
+  void _syncProfileInBackground(User user, String email) {
+    Future(() async {
+      try {
+        final displayName = user.userMetadata?['full_name'] ??
+            user.userMetadata?['display_name'] ??
+            'Kuskas User';
+        await Supabase.instance.client.from('users').upsert({
+          'id': user.id,
+          'email': user.email ?? email,
+          'full_name': displayName,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        }).timeout(const Duration(seconds: 5));
+      } catch (_) {}
+
+      try {
+        await UserCache.loadProfile();
+      } catch (_) {}
+    });
   }
 
   Future<void> _handleGoogleSignIn() async {
@@ -234,8 +257,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           if (value == null || value.isEmpty) {
                             return 'Email tidak boleh kosong';
                           }
-                          if (!value.contains('@')) {
-                            return 'Format email tidak valid';
+                          final emailRegex = RegExp(r'^[a-zA-Z0-9\._%+-]+@gmail\.com$', caseSensitive: false);
+                          if (!emailRegex.hasMatch(value.trim())) {
+                            return 'Harus menggunakan email Gmail yang valid (contoh@gmail.com)';
                           }
                           return null;
                         },

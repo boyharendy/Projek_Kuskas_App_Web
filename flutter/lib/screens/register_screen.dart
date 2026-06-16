@@ -153,7 +153,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         validator: (v) {
                           if (v == null || v.isEmpty) return 'Email tidak boleh kosong';
-                          if (!v.contains('@')) return 'Format email tidak valid';
+                          final emailRegex = RegExp(r'^[a-zA-Z0-9\._%+-]+@gmail\.com$', caseSensitive: false);
+                          if (!emailRegex.hasMatch(v.trim())) {
+                            return 'Harus menggunakan email Gmail yang valid (contoh@gmail.com)';
+                          }
                           return null;
                         },
                       ),
