@@ -133,7 +133,7 @@ export default function Login({
                 <div className="flex-1 space-y-6">
                     <div>
                         <h2 className="text-2xl font-extrabold text-slate-100 bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-                            Masuk ke KUSKAS Web 📱
+                            Masuk ke KUSKAS Web
                         </h2>
                         <p className="text-sm text-slate-400 mt-2 leading-relaxed">
                             Hubungkan instan dari aplikasi KUSKAS di ponsel Anda untuk mengelola keuangan Anda di layar lebar.

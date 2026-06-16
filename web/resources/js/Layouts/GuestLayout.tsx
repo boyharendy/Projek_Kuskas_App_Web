@@ -11,10 +11,7 @@ export default function Guest({ children, wide = false }: GuestProps) {
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 py-8">
             <div className="mb-4">
-                <Link href="/" className="flex items-center space-x-3">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                        <span className="text-white font-extrabold text-2xl">K</span>
-                    </div>
+                <Link href="/">
                     <span className="text-white text-2xl font-black tracking-wider bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">KUSKAS</span>
                 </Link>
             </div>
